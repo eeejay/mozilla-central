@@ -64,9 +64,11 @@ EXTRA_JS_MODULES = \
   InlineSpellChecker.jsm \
   PageMenu.jsm \
   PopupNotifications.jsm \
+  PicoTTSWorker.js \
   PrivateBrowsingUtils.jsm \
   PropertyListUtils.jsm \
   Task.jsm \
+  tts.jsm \
   $(NULL)
 
 EXTRA_PP_JS_MODULES = \
