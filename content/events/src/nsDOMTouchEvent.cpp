@@ -200,7 +200,7 @@ nsDOMTouchEvent::nsDOMTouchEvent(nsPresContext* aPresContext,
     }
   } else {
     mEventIsInternal = true;
-    mEvent->time = PR_Now();
+    mEvent->time = PR_Now() / 1000;
   }
 }
 
