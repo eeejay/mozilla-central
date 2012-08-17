@@ -39,29 +39,32 @@ BaseTraversalRule.prototype = {
     QueryInterface: XPCOMUtils.generateQI([Ci.nsIAccessibleTraversalRule])
 };
 
+var gSimpleTraversalRoles =
+  [Ci.nsIAccessibleRole.ROLE_MENUITEM,
+   Ci.nsIAccessibleRole.ROLE_LINK,
+   Ci.nsIAccessibleRole.ROLE_PAGETAB,
+   Ci.nsIAccessibleRole.ROLE_GRAPHIC,
+   // XXX: Find a better solution for ROLE_STATICTEXT.
+   // It allows to filter list bullets but at the same time it
+   // filters CSS generated content too as an unwanted side effect.
+   // Ci.nsIAccessibleRole.ROLE_STATICTEXT,
+   Ci.nsIAccessibleRole.ROLE_TEXT_LEAF,
+   Ci.nsIAccessibleRole.ROLE_PUSHBUTTON,
+   Ci.nsIAccessibleRole.ROLE_CHECKBUTTON,
+   Ci.nsIAccessibleRole.ROLE_RADIOBUTTON,
+   Ci.nsIAccessibleRole.ROLE_COMBOBOX,
+   Ci.nsIAccessibleRole.ROLE_PROGRESSBAR,
+   Ci.nsIAccessibleRole.ROLE_BUTTONDROPDOWN,
+   Ci.nsIAccessibleRole.ROLE_BUTTONMENU,
+   Ci.nsIAccessibleRole.ROLE_CHECK_MENU_ITEM,
+   Ci.nsIAccessibleRole.ROLE_PASSWORD_TEXT,
+   Ci.nsIAccessibleRole.ROLE_RADIO_MENU_ITEM,
+   Ci.nsIAccessibleRole.ROLE_TOGGLE_BUTTON,
+   Ci.nsIAccessibleRole.ROLE_ENTRY];
+
 var TraversalRules = {
   Simple: new BaseTraversalRule(
-    [Ci.nsIAccessibleRole.ROLE_MENUITEM,
-     Ci.nsIAccessibleRole.ROLE_LINK,
-     Ci.nsIAccessibleRole.ROLE_PAGETAB,
-     Ci.nsIAccessibleRole.ROLE_GRAPHIC,
-     // XXX: Find a better solution for ROLE_STATICTEXT.
-     // It allows to filter list bullets but at the same time it
-     // filters CSS generated content too as an unwanted side effect.
-     // Ci.nsIAccessibleRole.ROLE_STATICTEXT,
-     Ci.nsIAccessibleRole.ROLE_TEXT_LEAF,
-     Ci.nsIAccessibleRole.ROLE_PUSHBUTTON,
-     Ci.nsIAccessibleRole.ROLE_CHECKBUTTON,
-     Ci.nsIAccessibleRole.ROLE_RADIOBUTTON,
-     Ci.nsIAccessibleRole.ROLE_COMBOBOX,
-     Ci.nsIAccessibleRole.ROLE_PROGRESSBAR,
-     Ci.nsIAccessibleRole.ROLE_BUTTONDROPDOWN,
-     Ci.nsIAccessibleRole.ROLE_BUTTONMENU,
-     Ci.nsIAccessibleRole.ROLE_CHECK_MENU_ITEM,
-     Ci.nsIAccessibleRole.ROLE_PASSWORD_TEXT,
-     Ci.nsIAccessibleRole.ROLE_RADIO_MENU_ITEM,
-     Ci.nsIAccessibleRole.ROLE_TOGGLE_BUTTON,
-     Ci.nsIAccessibleRole.ROLE_ENTRY],
+    gSimpleTraversalRoles,
     function Simple_match(aAccessible) {
       switch (aAccessible.role) {
       case Ci.nsIAccessibleRole.ROLE_COMBOBOX:
@@ -90,6 +93,14 @@ var TraversalRules = {
         return Ci.nsIAccessibleTraversalRule.FILTER_MATCH |
           Ci.nsIAccessibleTraversalRule.FILTER_IGNORE_SUBTREE;
       }
+    }
+  ),
+
+  SimpleTouch: new BaseTraversalRule(
+    gSimpleTraversalRoles,
+    function Simple_match(aAccessible) {
+      return Ci.nsIAccessibleTraversalRule.FILTER_MATCH |
+        Ci.nsIAccessibleTraversalRule.FILTER_IGNORE_SUBTREE;
     }
   ),
 
@@ -332,7 +343,7 @@ var VirtualCursorController = {
   },
 
   moveToPoint: function moveToPoint(aDocument, aX, aY) {
-    Utils.getVirtualCursor(aDocument).moveToPoint(TraversalRules.Simple,
+    Utils.getVirtualCursor(aDocument).moveToPoint(TraversalRules.SimpleTouch,
                                                   aX, aY, true);
   },
 
