@@ -94,7 +94,7 @@ var AccessFu = {
       this._androidPresenter = new AndroidPresenter();
       this.addPresenter(this._androidPresenter);
     } else if (Utils.MozBuildApp == 'b2g') {
-      this.addPresenter(new SpeechPresenter());
+      this.addPresenter(new SpeechPresenter(new this.chromeWin.Audio()));
     }
 
     VirtualCursorController.attach(this.chromeWin);
