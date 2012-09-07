@@ -12,6 +12,7 @@ const Cr = Components.results;
 Cu.import('resource://gre/modules/accessibility/Utils.jsm');
 Cu.import('resource://gre/modules/accessibility/UtteranceGenerator.jsm');
 Cu.import('resource://gre/modules/Geometry.jsm');
+Cu.import('resource://gre/modules/tts.jsm');
 
 var EXPORTED_SYMBOLS = ['VisualPresenter',
                         'AndroidPresenter',
@@ -384,7 +385,10 @@ DummyAndroidPresenter.prototype = {
  * A speech presenter for direct TTS output
  */
 
-function SpeechPresenter() {}
+function SpeechPresenter(aAudioElement) {
+  tts.init(aAudioElement);
+  tts.addEarcon('tick', 'chrome://global/content/accessibility/tick.wav');
+}
 
 SpeechPresenter.prototype = {
   __proto__: Presenter.prototype,
@@ -411,7 +415,10 @@ SpeechPresenter.prototype = {
       }
     );
 
-    Logger.info('SPEAK', '"' + output.join(' ') + '"');
+    Logger.info('SPEAK', '"' + output.join(' ') + '"' +
+                '(' + Logger.accessibleToString(aContext.accessible) + ')');
+    tts.playEarcon('tick');
+    tts.speak(output.join(' '), {enqueue: true});
   }
 }
 
