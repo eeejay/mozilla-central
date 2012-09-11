@@ -247,6 +247,14 @@ var UtteranceGenerator = {
         utterance.push(name);
 
       return utterance;
+    },
+
+    document: function document(aAccessible, aRoleStr, aStates, aFlags) {
+      if (aAccessible.name.indexOf('app://') == 0)
+        return [];
+
+      return this.objectUtteranceFunctions.defaultFunc(
+        aAccessible, aRoleStr, aStates, aFlags);
     }
   },
 
