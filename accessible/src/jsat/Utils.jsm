@@ -41,6 +41,13 @@ var Utils = {
     return this._OS;
   },
 
+  get ScriptName() {
+    if (!this._ScriptName)
+      this._ScriptName =
+      (Services.appinfo.processType == 2) ? 'AccessFuContent' : 'AccessFu';
+    return this._ScriptName;
+  },
+
   get AndroidSdkVersion() {
     if (!this._AndroidSdkVersion) {
       let shellVersion = Services.sysinfo.get('shellVersion') || '';
@@ -71,10 +78,21 @@ var Utils = {
     }
   },
 
-  getCurrentContentDoc: function getCurrentContentDoc(aWindow) {
+  getCurrentBrowser: function getCurrentBrowser(aWindow) {
     if (this.MozBuildApp == "b2g")
-      return this.getBrowserApp(aWindow).contentBrowser.contentDocument;
-    return this.getBrowserApp(aWindow).selectedBrowser.contentDocument;
+      return this.getBrowserApp(aWindow).contentBrowser;
+    return this.getBrowserApp(aWindow).selectedBrowser;
+  },
+
+  getCurrentContentDoc: function getCurrentContentDoc(aWindow) {
+    return this.getCurrentBrowser(aWindow).contentDocument;
+  },
+
+  getContentWindows: function getContentWindows(aWindow) {
+    if (this.MozBuildApp == "b2g")
+      return [this.getBrowserApp(aWindow).contentBrowser];
+
+    return [b.contentWindow for each (b in this.getBrowserApp(aWindow))];
   },
 
   getAllDocuments: function getAllDocuments(aWindow) {
@@ -217,7 +235,7 @@ var Logger = {
       return;
 
     let message = Array.prototype.slice.call(arguments, 1).join(' ');
-    dump('[AccessFu] ' + this._LEVEL_NAMES[aLogLevel] + ' ' + message + '\n');
+    dump('[' + Utils.ScriptName + '] ' + this._LEVEL_NAMES[aLogLevel] + ' ' + message + '\n');
   },
 
   info: function info() {
@@ -284,9 +302,11 @@ var Logger = {
     let indentStr = '';
     for (var i=0; i < aIndent; i++)
       indentStr += ' ';
+    let e = aAccessible.DOMNode;
+    let html = e.outerHTML ? e.outerHTML.substring(0, e.outerHTML.indexOf(e.innerHTML)) : '';
     this.log(aLogLevel, indentStr,
              this.accessibleToString(aAccessible),
-             '(' + this.statesToString(aAccessible) + ')');
+             '(' + this.statesToString(aAccessible) + ')', html || e.outerHTML, e.firstChild);
     for (var i=0; i < aAccessible.childCount; i++)
       this._dumpTreeInternal(aLogLevel, aAccessible.getChildAt(i), aIndent + 1);
     }

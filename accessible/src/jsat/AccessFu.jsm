@@ -14,22 +14,56 @@ var EXPORTED_SYMBOLS = ['AccessFu'];
 Cu.import('resource://gre/modules/Services.jsm');
 
 Cu.import('resource://gre/modules/accessibility/Utils.jsm');
+Cu.import('resource://gre/modules/accessibility/Adapters.jsm');
 Cu.import('resource://gre/modules/accessibility/Presenters.jsm');
 Cu.import('resource://gre/modules/accessibility/VirtualCursorController.jsm');
 Cu.import('resource://gre/modules/accessibility/TouchAdapter.jsm');
+Cu.import('resource://gre/modules/accessibility/EventManager.jsm');
 
 const ACCESSFU_DISABLE = 0;
 const ACCESSFU_ENABLE = 1;
 const ACCESSFU_AUTO = 2;
 
+var _AccessFu = {
+  attach: function attach(aWindow) {
+    EventManager.start();
+    VirtualCursorController.attach(aWindow);
+    aWindow.messageManager.
+      loadFrameScript('chrome://global/content/accessibility/content-script.js', true);
+    Services.obs.addObserver(this, "inner-window-destroyed", false);
+    Services.obs.addObserver(this, 'in-process-browser-frame-shown', false);
+    Services.obs.addObserver(this, 'remote-browser-frame-shown', false);
+  },
+
+  observe: function(subject, topic, data) {
+    switch (topic) {
+    case "inner-window-destroyed": {
+      let wId = subject.QueryInterface(Ci.nsISupportsPRUint64).data;
+      Logger.info(topic, wId);
+      break;
+    }
+    case 'in-process-browser-frame-shown':
+    case 'remote-browser-frame-shown': {
+      let frameLoader = subject.QueryInterface(Ci.nsIFrameLoader);
+      let mm = frameLoader.messageManager;
+      Logger.info(topic, frameLoader, mm);
+      mm.addMessageListener("AccessFu:Ready",
+                            function () {
+                              Logger.info("AccessFu:Ready!");
+                              mm.sendAsyncMessage("AccessFu:EventManager", "start");
+                            });
+      mm.loadFrameScript('chrome://global/content/accessibility/content-script.js', true);
+      break;
+    }
+    }
+  }
+};
+
 var AccessFu = {
   /**
-   * Attach chrome-layer accessibility functionality to the given chrome window.
-   * If accessibility is enabled on the platform (currently Android-only), then
-   * a special accessibility mode is started (see startup()).
-   * @param {ChromeWindow} aWindow Chrome window to attach to.
-   * @param {boolean} aForceEnabled Skip platform accessibility check and enable
-   *  AccessFu.
+   * Initialize chrome-layer accessibility functionality.
+   * If accessibility is enabled on the platform, then a special accessibility
+   * mode is started.
    */
   attach: function attach(aWindow) {
     if (this.chromeWin)
@@ -38,6 +72,7 @@ var AccessFu = {
 
     Logger.info('attach');
     this.chromeWin = aWindow;
+
     this.presenters = [];
 
     this.prefsBranch = Cc['@mozilla.org/preferences-service;1']
@@ -81,6 +116,15 @@ var AccessFu = {
 
     Logger.info('enable');
 
+    let mm = Utils.getCurrentBrowser(this.chromeWin).frameLoader.messageManager;
+    mm.addMessageListener("AccessFu:Present", this.onPresent);
+    mm.addMessageListener("AccessFu:Ready",
+                          function () {
+                            Logger.info("AccessFu:Ready!");
+                            mm.sendAsyncMessage("AccessFu:EventManager", "start");
+                          });
+    mm.loadFrameScript('chrome://global/content/accessibility/content-script.js', true);
+
     // Add stylesheet
     let stylesheetURL = 'chrome://global/content/accessibility/AccessFu.css';
     this.stylesheet = this.chromeWin.document.createProcessingInstruction(
@@ -98,13 +142,17 @@ var AccessFu = {
     }
 
     VirtualCursorController.attach(this.chromeWin);
+    Adapters.attach(this.chromeWin);
 
-    Services.obs.addObserver(this, 'accessible-event', false);
+    Services.obs.addObserver(this, 'remote-browser-frame-shown', false);
+    Services.obs.addObserver(this, 'in-process-browser-frame-shown', false);
+    Services.obs.addObserver(this, 'chrome-document-global-created', false);
     this.chromeWin.addEventListener('DOMActivate', this, true);
     this.chromeWin.addEventListener('resize', this, true);
     this.chromeWin.addEventListener('scroll', this, true);
     this.chromeWin.addEventListener('TabOpen', this, true);
     this.chromeWin.addEventListener('focus', this, true);
+    this.chromeWin.addEventListener('mozbrowserloadend', this, true);
   },
 
   /**
@@ -124,7 +172,9 @@ var AccessFu = {
 
     VirtualCursorController.detach();
 
-    Services.obs.removeObserver(this, 'accessible-event');
+    Services.obs.removeObserver(this, 'remote-browser-frame-shown');
+    Services.obs.removeObserver(this, 'in-process-browser-frame-shown');
+    Services.obs.removeObserver(this, 'chrome-document-global-created');
     this.chromeWin.removeEventListener('DOMActivate', this, true);
     this.chromeWin.removeEventListener('resize', this, true);
     this.chromeWin.removeEventListener('scroll', this, true);
@@ -165,6 +215,16 @@ var AccessFu = {
       this.touchAdapter.attach(this.chromeWin);
     else
       this.touchAdapter.detach(this.chromeWin);
+  },
+
+  onPresent: function onPresent(aMessage) {
+    try {
+      for each (var presenter in aMessage.json) {
+        Adapters[presenter.type](presenter.details, aMessage.target);
+      }
+    } catch (x) {
+      Logger.error(x);
+    }
   },
 
   addPresenter: function addPresenter(presenter) {
@@ -233,6 +293,11 @@ var AccessFu = {
         }
         break;
       }
+      case 'mozbrowserloadend':
+      {
+        Logger.info('mozbrowserloadend', aEvent.target.frameLoader);
+        break;
+      }
     }
   },
 
@@ -257,19 +322,29 @@ var AccessFu = {
         this._processPreferences(this.prefsBranch.getIntPref('activate'),
                                  this.prefsBranch.getIntPref('explorebytouch'));
         break;
-      case 'accessible-event':
-        let event;
-        try {
-          event = aSubject.QueryInterface(Ci.nsIAccessibleEvent);
-          this._handleAccEvent(event);
-        } catch (ex) {
-          Logger.error(ex);
-          return;
-        }
+      case 'remote-browser-frame-shown':
+      {
+        let frameLoader = aSubject.QueryInterface(Ci.nsIFrameLoader);
+        let mm = frameLoader.messageManager;
+        mm.addMessageListener("AccessFu:Ready",
+                              function () {
+                                Logger.info("AccessFu:Ready!");
+                                mm.sendAsyncMessage("AccessFu:EventManager", "start");
+                              });
+        mm.addMessageListener("AccessFu:Present", this.onPresent);
+        mm.loadFrameScript('chrome://global/content/accessibility/content-script.js', true);
+        break;
+      }
+      case 'chrome-document-global-created':
+      {
+        Logger.info(aTopic, aSubject.document);
+      }
     }
   },
 
   _handleAccEvent: function _handleAccEvent(aEvent) {
+    return;
+
     if (Logger.logLevel <= Logger.DEBUG)
       Logger.debug(Logger.eventToString(aEvent),
                    Logger.accessibleToString(aEvent.accessible));
