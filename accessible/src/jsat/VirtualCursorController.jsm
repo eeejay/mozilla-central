@@ -48,16 +48,16 @@ var VirtualCursorController = {
     if (detail.touches.length == 1) {
       switch (detail.type) {
         case 'swiperight':
-          this.moveNested('moveNext', 'Simple');
+          this.moveCursor('moveNext', 'Simple');
           break;
         case 'swipeleft':
-          this.moveNested('movePrevious', 'Simple');
+          this.moveCursor('movePrevious', 'Simple');
           break;
         case 'doubletap':
           this.activateCurrent();
           break;
         case 'explore':
-          this.moveNested('moveToPoint', 'Simple', detail.x, detail.y);
+          this.moveCursor('moveToPoint', 'Simple', detail.x, detail.y);
           break;
       }
     }
@@ -65,17 +65,16 @@ var VirtualCursorController = {
     if (detail.touches.length == 3) {
       switch (detail.type) {
         case 'swiperight':
-          if (!Utils.scroll(this.chromeWin, -1, true))
-            Utils.changePage(this.chromeWin, -1);
+          this.scroll(-1, true);
           break;
         case 'swipedown':
-          Utils.scroll(this.chromeWin, -1);
+          this.scroll(-1);
           break;
         case 'swipeleft':
-          if (!Utils.scroll(this.chromeWin, 1, true))
-            Utils.changePage(this.chromeWin, 1);
+          this.scroll(1, true);
+          break;
         case 'swipeup':
-          Utils.scroll(this.chromeWin, 1);
+          this.scroll(1);
           break;
       }
     }
@@ -99,7 +98,7 @@ var VirtualCursorController = {
         let key = String.fromCharCode(aEvent.charCode);
         try {
           let [methodName, rule] = this.keyMap[key];
-          this.moveNested(methodName, rule);
+          this.moveCursor(methodName, rule);
         } catch (x) {
           return;
         }
@@ -113,7 +112,7 @@ var VirtualCursorController = {
           else
             target.blur();
         }
-        this.moveNested(aEvent.shiftKey ? 'moveLast' : 'moveNext', 'Simple');
+        this.moveCursor(aEvent.shiftKey ? 'moveLast' : 'moveNext', 'Simple');
         break;
       case aEvent.DOM_VK_LEFT:
         if (this.editableState) {
@@ -124,7 +123,7 @@ var VirtualCursorController = {
           else
             target.blur();
         }
-        this.moveNested(aEvent.shiftKey ? 'moveFirst' : 'movePrevious', 'Simple');
+        this.moveCursor(aEvent.shiftKey ? 'moveFirst' : 'movePrevious', 'Simple');
         break;
       case aEvent.DOM_VK_UP:
         if (this.editableState & Ci.nsIAccessibleStates.EXT_STATE_MULTI_LINE) {
@@ -165,7 +164,7 @@ var VirtualCursorController = {
     aEvent.stopPropagation();
   },
 
-  moveNested: function moveNested(aAction, aRule, aX, aY) {
+  moveCursor: function moveCursor(aAction, aRule, aX, aY) {
     let mm = Utils.getCurrentBrowser(this.chromeWin).frameLoader.messageManager;
     mm.sendAsyncMessage('AccessFu:VirtualCursor',
                         {action: aAction, rule: aRule,
@@ -174,7 +173,12 @@ var VirtualCursorController = {
 
   activateCurrent: function activateCurrent() {
     let mm = Utils.getCurrentBrowser(this.chromeWin).frameLoader.messageManager;
-    mm.sendAsyncMessage('AccessFu:VirtualCursor', {action: 'activateCurrent'});
+    mm.sendAsyncMessage('AccessFu:Activate', {});
+  },
+
+  scroll: function scroll(aPage, aHorizontal) {
+    let mm = Utils.getCurrentBrowser(this.chromeWin).frameLoader.messageManager;
+    mm.sendAsyncMessage('AccessFu:Scroll', {page: aPage, horizontal: aHorizontal, origin: 'top'});
   },
 
   moveCursorToObject: function moveCursorToObject(aVirtualCursor,
