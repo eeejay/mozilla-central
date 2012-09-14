@@ -74,6 +74,9 @@ function moveCursorInFrame(aAccessible, aMessage, aOrigin) {
       var mm = aAccessible.DOMNode.frameLoader.messageManager;
       mm.addMessageListener("AccessFu:VirtualCursor", virtualCursorControl);
       aMessage.json.origin = aOrigin;
+      // XXX: OOP content's screen offset is 0, so we remove the real screen offset here.
+      aMessage.json.x -= content.mozInnerScreenX;
+      aMessage.json.y -= content.mozInnerScreenY;
       mm.sendAsyncMessage("AccessFu:VirtualCursor", aMessage.json);
       return true;
     }
