@@ -203,7 +203,6 @@ function scroll(aMessage) {
 }
 
 function sendPresent(aDetails) {
-  Logger.info(content.mozInnerScreenY);
   sendAsyncMessage("AccessFu:Present", aDetails);
 }
 

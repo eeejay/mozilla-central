@@ -218,6 +218,7 @@ var AccessFu = {
   },
 
   onPresent: function onPresent(aMessage) {
+    Logger.info('onPresent', (JSON.stringify(aMessage.json)));
     try {
       for each (var presenter in aMessage.json) {
         Adapters[presenter.type](presenter.details, aMessage.target);

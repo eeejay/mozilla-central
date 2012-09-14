@@ -81,6 +81,8 @@ var VirtualCursorController = {
   },
 
   _handleKeypress: function _handleKeypress(aEvent) {
+    Logger.info('_handleKeypress', aEvent.keyCode);
+
     let target = aEvent.target;
 
     // Ignore keys with modifiers so the content could take advantage of them.

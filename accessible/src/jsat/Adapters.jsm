@@ -68,14 +68,7 @@ var Adapters = {
 
     if (aDetails.method == 'show') {
       let padding = aDetails.padding;
-      let bounds = new Rect(aDetails.bounds.left, aDetails.bounds.top,
-                            aDetails.bounds.right - aDetails.bounds.left,
-                            aDetails.bounds.bottom - aDetails.bounds.top);
-      let vp = Utils.getViewport(this.chromeWin) || { zoom: 1.0, offsetY: 0 };
-
-      let browserOffset = aBrowser.getBoundingClientRect();
-      let r = bounds.translate(browserOffset.left, browserOffset.top).
-        scale(vp.zoom, vp.zoom).expandToIntegers();
+      let r = this._adjustBounds(aDetails.bounds, aBrowser);
 
       // First hide it to avoid flickering when changing the style.
       this.highlightBox.style.display = 'none';
@@ -87,5 +80,28 @@ var Adapters = {
     } else if (aDetails.method == 'hide') {
       this.highlightBox.style.display = 'none';
     }
+  },
+
+  Android: function Android(aDetails, aBrowser) {
+    if (!this._bridge)
+      this._bridge = Cc['@mozilla.org/android/bridge;1'].getService(Ci.nsIAndroidBridge);
+
+    for each (var androidEvent in aDetails) {
+      androidEvent.type = 'Accessibility:Event';
+      if (androidEvent.bounds)
+        androidEvent.bounds = this._adjustBounds(androidEvent.bounds, aBrowser);
+      this._bridge.handleGeckoMessage(JSON.stringify({gecko: androidEvent}));
+    }
+  },
+
+  _adjustBounds: function(aJsonBounds, aBrowser) {
+    let bounds = new Rect(aJsonBounds.left, aJsonBounds.top,
+                          aJsonBounds.right - aJsonBounds.left,
+                          aJsonBounds.bottom - aJsonBounds.top);
+    let vp = Utils.getViewport(this.chromeWin) || { zoom: 1.0, offsetY: 0 };
+    let browserOffset = aBrowser.getBoundingClientRect();
+
+    return bounds.translate(browserOffset.left, browserOffset.top).
+      scale(vp.zoom, vp.zoom).expandToIntegers();
   }
 };

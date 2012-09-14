@@ -196,15 +196,13 @@ AndroidPresenter.prototype = {
   ANDROID_ANNOUNCEMENT: 0x4000,
   ANDROID_VIEW_ACCESSIBILITY_FOCUSED: 0x8000,
 
-  attach: function AndroidPresenter_attach(aWindow) {
-    this.chromeWin = aWindow;
-  },
-
   pivotChanged: function AndroidPresenter_pivotChanged(aContext, aReason) {
     if (!aContext.accessible)
       return null;
 
     this._currentContext = aContext;
+
+    let androidEvents = [];
 
     let isExploreByTouch = (aReason == Ci.nsIAccessiblePivot.REASON_POINT &&
                             Utils.AndroidSdkVersion >= 14);
@@ -215,17 +213,9 @@ AndroidPresenter.prototype = {
     if (isExploreByTouch) {
       // This isn't really used by TalkBack so this is a half-hearted attempt
       // for now.
-      this.sendMessageToJava({
-         gecko: {
-           type: 'Accessibility:Event',
-           eventType: this.ANDROID_VIEW_HOVER_EXIT,
-           text: []
-         }
-      });
+      androidEvents.push({eventType: this.ANDROID_VIEW_HOVER_EXIT, text: []});
     }
 
-    let vp = Utils.getViewport(this.chromeWin) || { zoom: 1.0, offsetY: 0 };
-    let bounds = aContext.bounds.scale(vp.zoom, vp.zoom).expandToIntegers();
     let output = [];
 
     aContext.newAncestry.forEach(
@@ -243,19 +233,23 @@ AndroidPresenter.prototype = {
       }
     );
 
+    androidEvents.push({eventType: (isExploreByTouch) ?
+                          this.ANDROID_VIEW_HOVER_ENTER : focusEventType,
+                        text: output,
+                        bounds: aContext.bounds});
     return {
       type: this.type,
-      eventType: (isExploreByTouch) ? this.ANDROID_VIEW_HOVER_ENTER : focusEventType,
-      text: output,
-      bounds: bounds
+      details: androidEvents
     };
   },
 
   actionInvoked: function AndroidPresenter_actionInvoked(aObject, aActionName) {
     return {
       type: this.type,
-      eventType: this.ANDROID_VIEW_CLICKED,
-      text: UtteranceGenerator.genForAction(aObject, aActionName)
+      details: [{
+        eventType: this.ANDROID_VIEW_CLICKED,
+        text: UtteranceGenerator.genForAction(aObject, aActionName)
+      }]
     };
   },
 
@@ -275,11 +269,13 @@ AndroidPresenter.prototype = {
                                                      aModifiedText) {
     let androidEvent = {
       type: this.type,
-      eventType: this.ANDROID_VIEW_TEXT_CHANGED,
-      text: [aText],
-      fromIndex: aStart,
-      removedCount: 0,
-      addedCount: 0
+      details: [{
+        eventType: this.ANDROID_VIEW_TEXT_CHANGED,
+        text: [aText],
+        fromIndex: aStart,
+        removedCount: 0,
+        addedCount: 0
+      }]
     };
 
     if (aIsInserted) {
@@ -301,12 +297,14 @@ AndroidPresenter.prototype = {
 
     return {
       type: this.type,
-      eventType: this.ANDROID_VIEW_SCROLLED,
-      text: [],
-      scrollX: win.scrollX,
-      scrollY: win.scrollY,
-      maxScrollX: win.scrollMaxX,
-      maxScrollY: win.scrollMaxY
+      details: [{
+        eventType: this.ANDROID_VIEW_SCROLLED,
+        text: [],
+        scrollX: win.scrollX,
+        scrollY: win.scrollY,
+        maxScrollX: win.scrollMaxX,
+        maxScrollY: win.scrollMaxY
+      }]
     };
   },
 
@@ -320,12 +318,14 @@ AndroidPresenter.prototype = {
 
     return {
       type: this.type,
-      eventType: (Utils.AndroidSdkVersion >= 16) ?
-        this.ANDROID_ANNOUNCEMENT : this.ANDROID_VIEW_TEXT_CHANGED,
-      text: aUtterance,
-      addedCount: aUtterance.join(' ').length,
-      removedCount: 0,
-      fromIndex: 0
+      details: [{
+        eventType: (Utils.AndroidSdkVersion >= 16) ?
+          this.ANDROID_ANNOUNCEMENT : this.ANDROID_VIEW_TEXT_CHANGED,
+        text: aUtterance,
+        addedCount: aUtterance.join(' ').length,
+        removedCount: 0,
+        fromIndex: 0
+      }]
     };
   },
 

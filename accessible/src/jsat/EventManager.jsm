@@ -17,7 +17,15 @@ var EventManager = {
   start: function start(aPresentFunc) {
     Logger.info('EventManager start!');
     this.presentFunc = aPresentFunc || function() {};
-    this.presenters = [new SpeechPresenter(), new VisualPresenter()];
+    this.presenters = [new VisualPresenter()];
+
+    if (Utils.MozBuildApp == 'b2g') {
+      this.presenters.push(new SpeechPresenter());
+    } else if (Utils.MozBuildApp == 'mobile/android') {
+      this.presenters.push(new AndroidPresenter());
+    }
+
+    Logger.info('EventManager start!', Utils.MozBuildApp, [p.type for each (p in this.presenters)].join(', '));
 
     if (this._started)
       return;
