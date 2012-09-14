@@ -17,7 +17,7 @@ function virtualCursorControl(aMessage) {
     var vc = Utils.getVirtualCursor(content.document);
     var origin = aMessage.json.origin;
     if (origin != 'child') {
-      if (moveCursorInFrame(vc.position, aMessage, origin))
+      if (moveCursorInFrame(vc.position, aMessage))
         return;
     }
 
@@ -32,12 +32,11 @@ function virtualCursorControl(aMessage) {
     case 'moveNext':
     case 'movePrevious':
       try {
-        if (origin == 'parent' && vc.position != null) {
-          // TODO: Maybe directly present intead of setting and unsetting.
-          var pos = vc.position;
-          vc.position = null;
-          vc.position = pos;
-          moved = true;
+        if (origin == 'parent' && vc.position == null) {
+          if (details.action == 'moveNext')
+            moved = vc.moveFirst(rule);
+          else
+            moved = vc.moveLast(rule);
         } else {
           moved = vc[details.action](rule);
         }
@@ -57,9 +56,10 @@ function virtualCursorControl(aMessage) {
     }
 
     if (moved == true) {
-      moveCursorInFrame(vc.position, aMessage, 'parent');
+      moveCursorInFrame(vc.position, aMessage);
     } else if (moved == false) {
-      Logger.info('Sending it back up', aMessage.name);
+      if (origin == 'parent')
+        vc.position = null;
       aMessage.json.origin = 'child';
       sendAsyncMessage("AccessFu:VirtualCursor", aMessage.json);
     }
@@ -68,15 +68,16 @@ function virtualCursorControl(aMessage) {
   }
 }
 
-function moveCursorInFrame(aAccessible, aMessage, aOrigin) {
+function moveCursorInFrame(aAccessible, aMessage) {
   try {
     if (aAccessible && aAccessible.role == Ci.nsIAccessibleRole.ROLE_INTERNAL_FRAME) {
       var mm = aAccessible.DOMNode.frameLoader.messageManager;
       mm.addMessageListener("AccessFu:VirtualCursor", virtualCursorControl);
-      aMessage.json.origin = aOrigin;
+      aMessage.json.origin = 'parent';
       // XXX: OOP content's screen offset is 0, so we remove the real screen offset here.
       aMessage.json.x -= content.mozInnerScreenX;
       aMessage.json.y -= content.mozInnerScreenY;
+      Logger.info('sendAsyncMessage', aMessage.json.action);
       mm.sendAsyncMessage("AccessFu:VirtualCursor", aMessage.json);
       return true;
     }
